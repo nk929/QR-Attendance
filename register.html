@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사용자 등록 - QR 출석 관리</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-qrcode"></i>
+                <span>QR 출석 시스템</span>
+            </div>
+            <div class="nav-menu" id="navMenu">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i> 대시보드
+                </a>
+                <a href="register.html" class="nav-link active">
+                    <i class="fas fa-user-plus"></i> 사용자 등록
+                </a>
+                <a href="scanner.html" class="nav-link">
+                    <i class="fas fa-camera"></i> QR 스캔
+                </a>
+                <a href="attendance.html" class="nav-link">
+                    <i class="fas fa-list"></i> 출석 기록
+                </a>
+            </div>
+            <button class="nav-toggle" id="navToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <h1><i class="fas fa-user-plus"></i> 사용자 등록</h1>
+            <p>새로운 사용자를 등록하고 개인 QR 코드를 생성하세요</p>
+        </div>
+
+        <!-- 입력 항목 관리 카드 -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-cog"></i> 입력 항목 관리</h2>
+            </div>
+            <div class="card-body">
+                <p style="margin-bottom: 15px; color: #666;">
+                    <i class="fas fa-info-circle"></i> 사용자 등록 시 필요한 항목을 추가하거나 삭제할 수 있습니다.
+                </p>
+                <div class="field-manager">
+                    <div class="field-list" id="fieldList">
+                        <!-- 동적으로 생성됨 -->
+                    </div>
+                    <button type="button" id="addFieldBtn" class="btn btn-primary" style="width: 100%; margin-top: 15px;">
+                        <i class="fas fa-plus"></i> 새 항목 추가
+                    </button>
+                </div>
+            </div>
+
+            <!-- 데이터 동기화 카드 -->
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <h2><i class="fas fa-sync-alt"></i> 데이터 동기화</h2>
+                </div>
+                <div class="card-body">
+                    <p style="margin-bottom: 15px; color: #666;">
+                        💡 모바일에서 QR 스캔하려면 먼저 데이터를 내보낸 후, 모바일 브라우저에서 가져오기 하세요.
+                    </p>
+                    <button type="button" id="exportDataBtn" class="btn btn-success" style="width: 100%; margin-bottom: 10px;">
+                        <i class="fas fa-download"></i> 데이터 내보내기 (JSON)
+                    </button>
+                    <button type="button" id="importDataBtn" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-upload"></i> 데이터 가져오기
+                    </button>
+                    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                </div>
+            </div>
+        </div>
+
+        <div class="registration-layout">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-edit"></i> 등록 정보 입력</h2>
+                </div>
+                <div class="card-body">
+                    <form id="registerForm" class="form">
+                        <div id="dynamicFormFields">
+                            <!-- 동적으로 생성되는 폼 필드 -->
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check"></i> 등록하기
+                            </button>
+                            <button type="reset" class="btn btn-secondary">
+                                <i class="fas fa-redo"></i> 초기화
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-qrcode"></i> 개인 QR 코드</h2>
+                </div>
+                <div class="card-body">
+                    <div id="qrResult" class="qr-result hidden">
+                        <div class="qr-success-message">
+                            <i class="fas fa-check-circle"></i>
+                            <h3>등록 완료!</h3>
+                            <p id="registeredName"></p>
+                        </div>
+                        <div id="qrCodeDisplay" class="qr-code-display"></div>
+                        <p class="qr-info">
+                            <i class="fas fa-info-circle"></i>
+                            이 QR 코드를 저장하여 출석 체크 시 사용하세요
+                        </p>
+                        <div class="qr-actions">
+                            <button id="downloadQR" class="btn btn-success">
+                                <i class="fas fa-download"></i> QR 코드 다운로드
+                            </button>
+                            <button id="printQR" class="btn btn-secondary">
+                                <i class="fas fa-print"></i> 인쇄
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="qrPlaceholder" class="qr-placeholder">
+                        <i class="fas fa-qrcode"></i>
+                        <p>사용자를 등록하면<br>QR 코드가 생성됩니다</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-users"></i> 등록된 사용자 목록</h2>
+                <button id="refreshUsers" class="btn btn-small">
+                    <i class="fas fa-sync"></i> 새로고침
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="이름, 이메일, 부서로 검색...">
+                </div>
+                <div id="usersList" class="users-list">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 QR 출석 관리 시스템. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/register-new.js"></script>
+</body>
+</html>

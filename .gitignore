@@ -1,0 +1,32 @@
+# 운영체제 파일
+.DS_Store
+Thumbs.db
+
+# 에디터/IDE 설정 파일
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 로그 파일
+*.log
+
+# 임시 파일
+*.tmp
+*.temp
+
+# Node.js (만약 나중에 사용할 경우)
+node_modules/
+package-lock.json
+
+# 환경 설정 파일
+.env
+.env.local
+
+# 빌드 출력 (만약 나중에 빌드 프로세스 추가 시)
+dist/
+build/
+
+# 사용하지 않는 파일
+js/register.js
