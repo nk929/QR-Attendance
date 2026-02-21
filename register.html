@@ -160,10 +160,39 @@
     <footer class="footer">
         <p>&copy; 2026 QR 출석 관리 시스템. All rights reserved.</p>
     </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script src="js/storage.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    
+    <!-- Firebase SDK (Compat 버전) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js" crossorigin="anonymous"></script>
+    
+    <!-- Firebase 초기화 -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgwr8FMaK33hSUvqkQPnbKljN3orOfJ08",
+            authDomain: "qr-attendance-system-71bff.firebaseapp.com",
+            projectId: "qr-attendance-system-71bff",
+            storageBucket: "qr-attendance-system-71bff.firebasestorage.app",
+            messagingSenderId: "949718324955",
+            appId: "1:949718324955:web:6751ed5eaf2529a6151efe",
+            measurementId: "G-GL3KBG29VB"
+        };
+        if (typeof firebase !== 'undefined') {
+            firebase.initializeApp(firebaseConfig);
+            window.db = firebase.firestore();
+            console.log('🔥 Firebase 초기화 완료!');
+            console.log('📦 프로젝트 ID:', firebaseConfig.projectId);
+        } else {
+            console.error('❌ Firebase SDK 로드 실패!');
+        }
+    </script>
+    
+    <!-- Firebase Storage Functions -->
+    <script src="js/firebase-storage.js"></script>
+    
+    <!-- App Scripts -->
     <script src="js/main.js"></script>
     <script src="js/register-new.js"></script>
+
 </body>
 </html>
