@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>QR 스캐너 (고정 버전) - QR 출석 관리</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <style>
+        .version-badge {
+            position: fixed;
+            top: 60px;
+            right: 10px;
+            background: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 9999;
+        }
+        .scanner-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #reader {
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .start-btn {
+            width: 100%;
+            padding: 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .start-btn:hover {
+            background: #45a049;
+        }
+        .result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="version-badge">✅ Firestore 버전 v3.0</div>
+    
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-qrcode"></i>
+                <span>QR 출석 시스템</span>
+            </div>
+            <div class="nav-menu">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i> 대시보드
+                </a>
+                <a href="register.html" class="nav-link">
+                    <i class="fas fa-user-plus"></i> 사용자 등록
+                </a>
+                <a href="scanner-fixed.html" class="nav-link active">
+                    <i class="fas fa-camera"></i> QR 스캔
+                </a>
+                <a href="attendance.html" class="nav-link">
+                    <i class="fas fa-list"></i> 출석 기록
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="scanner-container">
+        <h1><i class="fas fa-qrcode"></i> QR 코드 스캔</h1>
+        <p style="color: #666; margin-bottom: 20px;">
+            등록된 사용자의 QR 코드를 스캔하여 출석을 체크하세요.
+        </p>
+
+        <button id="startBtn" class="start-btn">
+            <i class="fas fa-camera"></i> 스캐너 시작
+        </button>
+
+        <div id="reader"></div>
+        
+        <div id="result" class="result"></div>
+    </main>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    
+    <script>
+        // Firebase 초기화
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZdmV543McgUp72fusN2M8sfFAw0Fhu0g",
+            authDomain: "qr-attendance-63ad3.firebaseapp.com",
+            projectId: "qr-attendance-63ad3",
+            storageBucket: "qr-attendance-63ad3.firebasestorage.app",
+            messagingSenderId: "640778842098",
+            appId: "1:640778842098:web:bfb9c10ae210c4258e456b",
+            measurementId: "G-P6WPDVK34T"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        console.log('🔥 Firebase 초기화 완료!');
+        console.log('📦 프로젝트 ID:', firebaseConfig.projectId);
+        
+        // Firestore 함수 정의
+        const USERS_COLLECTION = 'users';
+        const ATTENDANCE_COLLECTION = 'attendance';
+        
+        async function fetchUserByQRCode(qrCode) {
+            try {
+                console.log('📥 QR 코드로 사용자 조회:', qrCode);
+                
+                const snapshot = await db.collection(USERS_COLLECTION)
+                    .where('qr_code', '==', qrCode)
+                    .where('deleted', '==', false)
+                    .limit(1)
+                    .get();
+                
+                if (!snapshot.empty) {
+                    const doc = snapshot.docs[0];
+                    console.log('✅ 사용자 찾음:', doc.data().name);
+                    return {
+                        id: doc.id,
+                        ...doc.data()
+                    };
+                } else {
+                    console.warn('⚠️ 사용자를 찾을 수 없음:', qrCode);
+                    return null;
+                }
+            } catch (error) {
+                console.error('❌ 조회 실패:', error);
+                return null;
+            }
+        }
+        
+        async function createAttendance(attendanceData) {
+            try {
+                console.log('📤 출석 기록 저장:', attendanceData.user_name);
+                
+                const timestamp = Date.now();
+                const newAttendance = {
+                    ...attendanceData,
+                    created_at: timestamp,
+                    updated_at: timestamp,
+                    deleted: false
+                };
+                
+                const docRef = await db.collection(ATTENDANCE_COLLECTION).add(newAttendance);
+                console.log('✅ 출석 기록 저장 완료:', docRef.id);
+                
+                return {
+                    id: docRef.id,
+                    ...newAttendance
+                };
+            } catch (error) {
+                console.error('❌ 출석 기록 저장 실패:', error);
+                throw error;
+            }
+        }
+        
+        // QR 스캐너
+        let html5QrCode = null;
+        let isScanning = false;
+        
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            if (isScanning) {
+                // 스캔 중지
+                await html5QrCode.stop();
+                isScanning = false;
+                document.getElementById('startBtn').innerHTML = '<i class="fas fa-camera"></i> 스캐너 시작';
+                document.getElementById('reader').style.display = 'none';
+            } else {
+                // 스캔 시작
+                document.getElementById('reader').style.display = 'block';
+                document.getElementById('startBtn').innerHTML = '<i class="fas fa-stop"></i> 스캐너 중지';
+                
+                html5QrCode = new Html5Qrcode("reader");
+                
+                try {
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 }
+                        },
+                        onScanSuccess,
+                        onScanFailure
+                    );
+                    isScanning = true;
+                } catch (err) {
+                    console.error('카메라 시작 실패:', err);
+                    showResult('카메라를 시작할 수 없습니다. 권한을 확인해주세요.', 'error');
+                }
+            }
+        });
+        
+        let lastScannedCode = '';
+        let lastScannedTime = 0;
+        
+        async function onScanSuccess(decodedText, decodedResult) {
+            // 3초 내 중복 스캔 방지
+            const now = Date.now();
+            if (decodedText === lastScannedCode && now - lastScannedTime < 3000) {
+                return;
+            }
+            
+            lastScannedCode = decodedText;
+            lastScannedTime = now;
+            
+            console.log('🔍 QR 코드 스캔됨:', decodedText);
+            
+            try {
+                // 사용자 조회
+                const user = await fetchUserByQRCode(decodedText);
+                
+                if (!user) {
+                    showResult('❌ 등록되지 않은 QR 코드입니다.', 'error');
+                    return;
+                }
+                
+                // 오늘 날짜
+                const today = new Date().toISOString().split('T')[0];
+                const eventName = `${today} 출석`;
+                
+                // 중복 출석 확인
+                const attendanceSnapshot = await db.collection(ATTENDANCE_COLLECTION)
+                    .where('user_id', '==', user.id)
+                    .where('event_name', '==', eventName)
+                    .where('deleted', '==', false)
+                    .limit(1)
+                    .get();
+                
+                if (!attendanceSnapshot.empty) {
+                    showResult(`⚠️ ${user.name}님은 이미 출석 처리되었습니다.`, 'error');
+                    return;
+                }
+                
+                // 출석 기록 저장
+                const attendanceData = {
+                    user_id: user.id,
+                    user_name: user.name,
+                    check_in_time: new Date().toISOString(),
+                    location: '스캐너',
+                    event_name: eventName
+                };
+                
+                await createAttendance(attendanceData);
+                
+                const time = new Date().toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                showResult(
+                    `✅ 출석 완료!\n${user.name}님의 출석이 확인되었습니다.\n행사: ${eventName}\n출석 시간: ${time}`,
+                    'success'
+                );
+                
+            } catch (error) {
+                console.error('처리 실패:', error);
+                showResult('❌ 출석 처리 중 오류가 발생했습니다.', 'error');
+            }
+        }
+        
+        function onScanFailure(error) {
+            // 스캔 실패는 무시 (계속 시도)
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+            resultDiv.style.display = 'block';
+            
+            // 5초 후 자동 숨김
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
