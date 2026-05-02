@@ -510,7 +510,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         </p>
                     </div>
                     <div class="user-actions">
-                        <button class="icon-btn view-qr-btn" title="QR 코드 보기" data-user='${JSON.stringify(user)}'>
+                        <button class="icon-btn view-qr-btn" title="QR 코드 보기" data-user-id="${user.id}">
+
                             <i class="fas fa-qrcode"></i>
                         </button>
                         <button class="icon-btn delete-user-btn" title="삭제" data-user-id="${user.id}" data-user-name="${user.name}">
@@ -521,15 +522,32 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }).join('');
 
-        // QR 코드 보기 버튼 이벤트
+               // QR 코드 보기 버튼 이벤트
         document.querySelectorAll('.view-qr-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const user = JSON.parse(btn.dataset.user);
-                currentUser = user;
-                generateQRCode(user);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+            btn.addEventListener('click', async () => {
+                const userId = btn.dataset.userId;
+                console.log('🔍 QR 보기 클릭 - 사용자 ID:', userId);
+                
+                // Firestore에서 최신 데이터 다시 조회
+                try {
+                    const user = await fetchUserById(userId);
+                    if (user) {
+                        console.log('✅ Firestore에서 사용자 조회 성공');
+                        console.log('   이름:', user.name);
+                        console.log('   QR 코드:', user.qr_code);
+                        currentUser = user;
+                        generateQRCode(user);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else {
+                        showNotification('사용자를 찾을 수 없습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('❌ 사용자 조회 실패:', error);
+                    showNotification('사용자 정보를 불러오는데 실패했습니다.', 'error');
+                }
             });
         });
+
 
         // 삭제 버튼 이벤트
         document.querySelectorAll('.delete-user-btn').forEach(btn => {
