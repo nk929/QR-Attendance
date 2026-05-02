@@ -34,6 +34,51 @@
         </div>
     </nav>
 
+
+        <!-- 등록된 사용자 관리 -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-users"></i> 등록된 사용자 관리</h2>
+                <button onclick="loadUserList()" class="btn" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-sync-alt"></i> 새로고침
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="userListContainer">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 관리자 영역 -->
+        <div class="card" style="border: 2px solid #dc3545; margin-top: 20px;">
+            <div class="card-header" style="background: #dc3545; color: white;">
+                <h2><i class="fas fa-shield-alt"></i> 관리자 영역</h2>
+            </div>
+            <div class="card-body">
+                <p style="color: #dc3545; font-weight: bold; margin-bottom: 15px;">
+                    <i class="fas fa-exclamation-triangle"></i> 주의: 아래 작업은 되돌릴 수 없습니다!
+                </p>
+                <div class="admin-actions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <button onclick="resetAllUsers()" class="btn" style="background: #dc3545; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                        <i class="fas fa-users-slash"></i><br>
+                        전체 사용자 삭제
+                    </button>
+                    <button onclick="resetAllAttendance()" class="btn" style="background: #ff9800; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                        <i class="fas fa-trash-alt"></i><br>
+                        전체 출석 기록 삭제
+                    </button>
+                    <button onclick="resetAllData()" class="btn" style="background: #9c27b0; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                        <i class="fas fa-database"></i><br>
+                        전체 데이터 초기화
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
     <main class="container">
         <div class="dashboard-header">
             <h1><i class="fas fa-chart-line"></i> 출석 대시보드</h1>
@@ -156,6 +201,93 @@
     
     <!-- App Scripts -->
     <script src="js/main.js"></script>
-    <script src="js/register-new.js"></script>
+    <script src="js/dashboard.js"></script>
+    
+    <!-- 관리자 기능 -->
+    <script>
+    async function resetAllUsers() {
+        const password = prompt('비밀번호를 입력하세요:');
+        if (password !== 'admin1234') {
+            alert('❌ 비밀번호가 올바르지 않습니다!');
+            return;
+        }
+        
+        if (!confirm('정말로 모든 사용자를 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다!')) return;
+        if (!confirm('최종 확인: 모든 사용자 데이터가 영구 삭제됩니다!')) return;
+        
+        try {
+            const snapshot = await db.collection('users').get();
+            console.log(`🗑️ 총 ${snapshot.size}명의 사용자 삭제 시작...`);
+            
+            for (const doc of snapshot.docs) {
+                await doc.ref.delete();
+            }
+            
+            alert(`✅ ${snapshot.size}명의 사용자가 삭제되었습니다.`);
+            location.reload();
+        } catch (error) {
+            console.error('❌ 삭제 실패:', error);
+            alert('삭제 실패: ' + error.message);
+        }
+    }
+    
+    async function resetAllAttendance() {
+        const password = prompt('비밀번호를 입력하세요:');
+        if (password !== 'admin1234') {
+            alert('❌ 비밀번호가 올바르지 않습니다!');
+            return;
+        }
+        
+        if (!confirm('정말로 모든 출석 기록을 삭제하시겠습니까?')) return;
+        
+        try {
+            const snapshot = await db.collection('attendance').get();
+            console.log(`🗑️ 총 ${snapshot.size}건의 출석 기록 삭제 시작...`);
+            
+            for (const doc of snapshot.docs) {
+                await doc.ref.delete();
+            }
+            
+            alert(`✅ ${snapshot.size}건의 출석 기록이 삭제되었습니다.`);
+            location.reload();
+        } catch (error) {
+            console.error('❌ 삭제 실패:', error);
+            alert('삭제 실패: ' + error.message);
+        }
+    }
+    
+    async function resetAllData() {
+        const password = prompt('비밀번호를 입력하세요:');
+        if (password !== 'admin1234') {
+            alert('❌ 비밀번호가 올바르지 않습니다!');
+            return;
+        }
+        
+        if (!confirm('⚠️ 경고: 모든 데이터(사용자 + 출석)를 삭제합니다!\n\n정말 계속하시겠습니까?')) return;
+        
+        const confirmText = prompt('계속하려면 "DELETE"를 입력하세요:');
+        if (confirmText !== 'DELETE') {
+            alert('취소되었습니다.');
+            return;
+        }
+        
+        try {
+            const users = await db.collection('users').get();
+            const attendance = await db.collection('attendance').get();
+            
+            console.log(`🗑️ ${users.size}명 사용자, ${attendance.size}건 출석 기록 삭제...`);
+            
+            for (const doc of users.docs) await doc.ref.delete();
+            for (const doc of attendance.docs) await doc.ref.delete();
+            
+            alert(`✅ 전체 초기화 완료!\n- 사용자: ${users.size}명\n- 출석 기록: ${attendance.size}건`);
+            location.reload();
+        } catch (error) {
+            console.error('❌ 초기화 실패:', error);
+            alert('초기화 실패: ' + error.message);
+        }
+    }
+    </script>
 </body>
+
 </html>
