@@ -1,268 +1,215 @@
-// 로컬 스토리지 기반 데이터 관리 (서버 없이 작동)
+/**
+ * Firebase Firestore 기반 스토리지
+ * Last updated: 2026-05-02 (Fixed deleted filter)
+ */
 
-// 데이터 저장소
-const STORAGE_KEYS = {
-    USERS: 'qr_attendance_users',
-    ATTENDANCE: 'qr_attendance_records'
-};
+const USERS_COLLECTION = 'users';
+const ATTENDANCE_COLLECTION = 'attendance';
 
-// 데이터 내보내기
-function exportData() {
-    try {
-        const data = {
-            users: JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]'),
-            attendance: JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]'),
-            exportDate: new Date().toISOString(),
-            version: '1.0'
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `qr-attendance-backup-${formatDate(new Date())}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
-        
-        return true;
-    } catch (error) {
-        console.error('Export error:', error);
-        return false;
-    }
-}
-
-// 데이터 가져오기
-function importData(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                
-                if (!data.users || !data.attendance) {
-                    throw new Error('잘못된 데이터 형식입니다.');
-                }
-                
-                // 기존 데이터와 병합
-                const existingUsers = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-                const existingAttendance = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
-                
-                // 중복 제거 (ID 기준)
-                const mergedUsers = [...existingUsers];
-                data.users.forEach(user => {
-                    if (!mergedUsers.find(u => u.id === user.id)) {
-                        mergedUsers.push(user);
-                    }
-                });
-                
-                const mergedAttendance = [...existingAttendance];
-                data.attendance.forEach(record => {
-                    if (!mergedAttendance.find(r => r.id === record.id)) {
-                        mergedAttendance.push(record);
-                    }
-                });
-                
-                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mergedUsers));
-                localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(mergedAttendance));
-                
-                resolve({
-                    usersImported: data.users.length,
-                    attendanceImported: data.attendance.length
-                });
-            } catch (error) {
-                reject(error);
-            }
-        };
-        
-        reader.onerror = () => reject(new Error('파일 읽기 실패'));
-        reader.readAsText(file);
-    });
-}
-
-// 로컬 스토리지 초기화
-function initializeStorage() {
-    if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.ATTENDANCE)) {
-        localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify([]));
-    }
-}
-
-// 사용자 관련 함수들
 async function fetchUsers(page = 1, limit = 1000) {
     try {
-        initializeStorage();
-        const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-        
-        // 정렬 및 페이지네이션
-        const sorted = users.sort((a, b) => b.created_at - a.created_at);
-        const start = (page - 1) * limit;
-        const data = sorted.slice(start, start + limit);
-        
-        return {
-            data: data,
-            total: users.length,
-            page: page,
-            limit: limit
-        };
+        console.log(`📥 Fetching users (page: ${page}, limit: ${limit})...`);
+        const snapshot = await db.collection(USERS_COLLECTION).get();
+        const allUsers = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.deleted === false) {
+                allUsers.push({ id: doc.id, ...data });
+            }
+        });
+        allUsers.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        const total = allUsers.length;
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedUsers = allUsers.slice(startIndex, endIndex);
+        console.log(`✅ Fetched ${paginatedUsers.length} users (total: ${total})`);
+        return { data: paginatedUsers, total: total, page: page, limit: limit };
     } catch (error) {
-        console.error('Error fetching users:', error);
-        return { data: [], total: 0, page: 1, limit: limit };
+        console.error('❌ Error fetching users:', error);
+        throw error;
     }
 }
 
 async function fetchUserById(userId) {
     try {
-        const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-        return users.find(u => u.id === userId) || null;
+        console.log(`📥 Fetching user by ID: ${userId}...`);
+        const doc = await db.collection(USERS_COLLECTION).doc(userId).get();
+        if (doc.exists && !doc.data().deleted) {
+            console.log(`✅ User found:`, doc.data().name);
+            return { id: doc.id, ...doc.data() };
+        } else {
+            console.warn(`⚠️ User not found: ${userId}`);
+            return null;
+        }
     } catch (error) {
-        console.error('Error fetching user:', error);
+        console.error('❌ Error fetching user by ID:', error);
+        return null;
+    }
+}
+
+async function fetchUserByQRCode(qrCode) {
+    try {
+        console.log(`📥 Fetching user by QR code: ${qrCode}...`);
+        const snapshot = await db.collection(USERS_COLLECTION)
+            .where('qr_code', '==', qrCode)
+            .where('deleted', '==', false)
+            .limit(1)
+            .get();
+        if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            console.log(`✅ User found:`, doc.data().name);
+            return { id: doc.id, ...doc.data() };
+        } else {
+            console.warn(`⚠️ User not found with QR code: ${qrCode}`);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Error fetching user by QR code:', error);
         return null;
     }
 }
 
 async function createUser(userData) {
     try {
-        initializeStorage();
-        const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-        
-        const newUser = {
-            ...userData,
-            id: userData.id || generateUUID(),
-            created_at: Date.now(),
-            updated_at: Date.now()
-        };
-        
-        users.push(newUser);
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-        
-        return newUser;
+        console.log(`📤 Creating user:`, userData.name);
+        if (!db) {
+            throw new Error('Firestore is not initialized');
+        }
+        const timestamp = Date.now();
+        const newUser = { ...userData, created_at: timestamp, updated_at: timestamp, deleted: false };
+        console.log('💾 Saving to Firestore...');
+        const docRef = await db.collection(USERS_COLLECTION).add(newUser);
+        console.log(`✅ User created with ID: ${docRef.id}`);
+        return { id: docRef.id, ...newUser };
     } catch (error) {
-        console.error('Error creating user:', error);
-        showNotification('사용자 등록에 실패했습니다.', 'error');
-        return null;
+        console.error('❌ Error creating user:', error);
+        throw error;
     }
 }
 
 async function deleteUser(userId) {
     try {
-        const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-        const filtered = users.filter(u => u.id !== userId);
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(filtered));
-        return true;
+        console.log(`🗑️ Deleting user: ${userId}...`);
+        await db.collection(USERS_COLLECTION).doc(userId).update({ deleted: true, updated_at: Date.now() });
+        console.log(`✅ User deleted: ${userId}`);
     } catch (error) {
-        console.error('Error deleting user:', error);
-        showNotification('사용자 삭제에 실패했습니다.', 'error');
-        return false;
+        console.error('❌ Error deleting user:', error);
+        throw error;
     }
 }
 
-// 출석 관련 함수들
-async function fetchAttendance(page = 1, limit = 1000) {
+async function fetchAttendance(page = 1, limit = 10000) {
     try {
-        initializeStorage();
-        const attendance = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
-        
-        // 정렬 및 페이지네이션
-        const sorted = attendance.sort((a, b) => 
-            new Date(b.check_in_time) - new Date(a.check_in_time)
-        );
-        const start = (page - 1) * limit;
-        const data = sorted.slice(start, start + limit);
-        
-        return {
-            data: data,
-            total: attendance.length,
-            page: page,
-            limit: limit
-        };
+        console.log(`📥 Fetching attendance (page: ${page}, limit: ${limit})...`);
+        const snapshot = await db.collection(ATTENDANCE_COLLECTION).get();
+        const allRecords = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (!data.deleted) {
+                allRecords.push({ id: doc.id, ...data });
+            }
+        });
+        allRecords.sort((a, b) => {
+            const timeA = new Date(a.check_in_time).getTime();
+            const timeB = new Date(b.check_in_time).getTime();
+            return timeB - timeA;
+        });
+        const total = allRecords.length;
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedRecords = allRecords.slice(startIndex, endIndex);
+        console.log(`✅ Fetched ${paginatedRecords.length} records (total: ${total})`);
+        return { data: paginatedRecords, total: total, page: page, limit: limit };
     } catch (error) {
-        console.error('Error fetching attendance:', error);
-        return { data: [], total: 0, page: 1, limit: limit };
+        console.error('❌ Error fetching attendance:', error);
+        throw error;
     }
 }
 
 async function createAttendance(attendanceData) {
     try {
-        initializeStorage();
-        const attendance = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
-        
-        const newRecord = {
-            ...attendanceData,
-            id: generateUUID(),
-            created_at: Date.now(),
-            updated_at: Date.now()
-        };
-        
-        attendance.push(newRecord);
-        localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
-        
-        return newRecord;
+        console.log(`📤 Creating attendance for:`, attendanceData.user_id);
+        const timestamp = Date.now();
+        const newAttendance = { ...attendanceData, created_at: timestamp, updated_at: timestamp, deleted: false };
+        const docRef = await db.collection(ATTENDANCE_COLLECTION).add(newAttendance);
+        console.log(`✅ Attendance created: ${docRef.id}`);
+        return { id: docRef.id, ...newAttendance };
     } catch (error) {
-        console.error('Error creating attendance:', error);
-        showNotification('출석 체크에 실패했습니다.', 'error');
-        return null;
+        console.error('❌ Error creating attendance:', error);
+        throw error;
     }
 }
 
 async function deleteAttendance(attendanceId) {
     try {
-        const attendance = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
-        const filtered = attendance.filter(a => a.id !== attendanceId);
-        localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(filtered));
-        return true;
+        console.log(`🗑️ Deleting attendance: ${attendanceId}...`);
+        await db.collection(ATTENDANCE_COLLECTION).doc(attendanceId).update({ deleted: true, updated_at: Date.now() });
+        console.log(`✅ Attendance deleted: ${attendanceId}`);
     } catch (error) {
-        console.error('Error deleting attendance:', error);
-        showNotification('출석 기록 삭제에 실패했습니다.', 'error');
-        return false;
+        console.error('❌ Error deleting attendance:', error);
+        throw error;
     }
 }
 
-// 데이터 내보내기 (백업용)
-function exportData() {
-    const data = {
-        users: JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]'),
-        attendance: JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]'),
-        exportDate: new Date().toISOString()
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `qr-attendance-backup-${formatDate(new Date())}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    showNotification('데이터가 백업되었습니다.', 'success');
+async function exportAllData() {
+    try {
+        console.log('📦 Exporting all data...');
+        const usersResult = await fetchUsers(1, 10000);
+        const attendanceResult = await fetchAttendance(1, 10000);
+        const exportData = {
+            users: usersResult.data,
+            attendance: attendanceResult.data,
+            exportDate: new Date().toISOString(),
+            version: '2.0',
+            source: 'firebase'
+        };
+        console.log(`✅ Export complete: ${exportData.users.length} users, ${exportData.attendance.length} records`);
+        return exportData;
+    } catch (error) {
+        console.error('❌ Error exporting data:', error);
+        throw error;
+    }
 }
 
-// 데이터 가져오기 (복원용)
-function importData(file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = JSON.parse(e.target.result);
-            
-            if (data.users && data.attendance) {
-                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(data.users));
-                localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(data.attendance));
-                showNotification('데이터가 복원되었습니다.', 'success');
-                location.reload();
-            } else {
-                showNotification('잘못된 파일 형식입니다.', 'error');
+async function importAllData(importData) {
+    try {
+        console.log('📥 Importing data...');
+        let usersImported = 0;
+        let attendanceImported = 0;
+        if (importData.users && Array.isArray(importData.users)) {
+            for (const user of importData.users) {
+                const existing = await fetchUserByQRCode(user.qr_code);
+                if (!existing) {
+                    const userData = { ...user };
+                    delete userData.id;
+                    await createUser(userData);
+                    usersImported++;
+                }
             }
-        } catch (error) {
-            console.error('Import error:', error);
-            showNotification('데이터 복원에 실패했습니다.', 'error');
         }
-    };
-    reader.readAsText(file);
+        if (importData.attendance && Array.isArray(importData.attendance)) {
+            for (const record of importData.attendance) {
+                const snapshot = await db.collection(ATTENDANCE_COLLECTION)
+                    .where('user_id', '==', record.user_id)
+                    .where('event_name', '==', record.event_name)
+                    .where('check_in_time', '==', record.check_in_time)
+                    .where('deleted', '==', false)
+                    .limit(1)
+                    .get();
+                if (snapshot.empty) {
+                    const attendanceData = { ...record };
+                    delete attendanceData.id;
+                    await createAttendance(attendanceData);
+                    attendanceImported++;
+                }
+            }
+        }
+        console.log(`✅ Import complete: ${usersImported} users, ${attendanceImported} records`);
+        return { usersImported, attendanceImported };
+    } catch (error) {
+        console.error('❌ Error importing data:', error);
+        throw error;
+    }
 }
 
-// 페이지 로드 시 초기화
-document.addEventListener('DOMContentLoaded', () => {
-    initializeStorage();
-});
+console.log('🔥 Firebase Storage 모듈 로드 완료!');
