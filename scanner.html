@@ -3,18 +3,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>QR 스캐너 - QR 출석 관리</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <style>
+        .version-badge {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 9999;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .scanner-container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        .scanner-header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            color: white;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .scanner-header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .scanner-header p {
+            margin: 0;
+            opacity: 0.95;
+            font-size: 1.1rem;
+        }
+        
+        #reader {
+            border: 3px solid transparent;
+            background: linear-gradient(white, white) padding-box,
+                        linear-gradient(135deg, #667eea, #764ba2) border-box;
+            border-radius: 15px;
+            margin: 25px 0;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            display: none;
+        }
+        
+        .start-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+        }
+        
+        .start-btn i {
+            font-size: 22px;
+        }
+        
+        .result {
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            display: none;
+            white-space: pre-line;
+            font-size: 15px;
+            line-height: 1.6;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .result.success {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+        
+        .result.success::before {
+            content: "✅";
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .result.error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+        
+        .result.error::before {
+            content: "⚠️";
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .scanner-container { padding: 20px 15px; }
+            .scanner-header h1 { font-size: 1.5rem; }
+            .scanner-header p { font-size: 1rem; }
+            .version-badge { top: 60px; right: 10px; font-size: 11px; padding: 6px 12px; }
+        }
+    </style>
 </head>
 <body>
+    <div class="version-badge">✅ Firestore 연동</div>
+    
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
                 <i class="fas fa-qrcode"></i>
                 <span>QR 출석 시스템</span>
             </div>
-            <div class="nav-menu" id="navMenu">
+            <div class="nav-menu">
                 <a href="index.html" class="nav-link">
                     <i class="fas fa-home"></i> 대시보드
                 </a>
@@ -28,120 +168,32 @@
                     <i class="fas fa-list"></i> 출석 기록
                 </a>
             </div>
-            <button class="nav-toggle" id="navToggle">
-                <i class="fas fa-bars"></i>
-            </button>
         </div>
     </nav>
 
-    <main class="container">
-        <div class="page-header">
-            <h1><i class="fas fa-camera"></i> QR 코드 스캐너</h1>
-            <p>사용자의 QR 코드를 스캔하여 출석을 확인하세요</p>
-            
-            <!-- 데이터 동기화 안내 -->
-            <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin-top: 15px;">
-                <h3 style="margin: 0 0 10px 0; color: #856404;">
-                    <i class="fas fa-exclamation-triangle"></i> 모바일에서 스캔하시나요?
-                </h3>
-                <p style="margin: 0 0 10px 0; color: #856404;">
-                    PC에서 등록한 사용자 정보를 먼저 가져와야 합니다!
-                </p>
-                <button id="importDataBtnScanner" class="btn btn-primary" style="margin-right: 10px;">
-                    <i class="fas fa-upload"></i> 데이터 가져오기
-                </button>
-                <small style="color: #856404;">
-                    ① PC에서 "사용자 등록" 메뉴 → "데이터 내보내기" 클릭<br>
-                    ② JSON 파일을 모바일로 전송 (카톡, 이메일 등)<br>
-                    ③ 모바일에서 이 버튼으로 가져오기
-                </small>
-                <input type="file" id="importFileInputScanner" accept=".json" style="display: none;">
-            </div>
+    <main class="scanner-container">
+        <div class="scanner-header">
+            <h1><i class="fas fa-qrcode"></i> QR 코드 스캔</h1>
+            <p>카메라로 QR 코드를 스캔하여 출석을 체크하세요</p>
         </div>
 
-        <div class="scanner-layout">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-video"></i> 카메라 스캐너</h2>
-                </div>
-                <div class="card-body">
-                    <div class="scanner-controls">
-                        <div class="form-group">
-                            <label for="eventName">
-                                <i class="fas fa-calendar-alt"></i> 행사/수업명
-                            </label>
-                            <input type="text" id="eventName" placeholder="예: 2026-01-25 정기모임">
-                        </div>
-                        <button id="startScanner" class="btn btn-primary">
-                            <i class="fas fa-play"></i> 스캐너 시작
-                        </button>
-                        <button id="stopScanner" class="btn btn-danger hidden">
-                            <i class="fas fa-stop"></i> 스캐너 중지
-                        </button>
-                    </div>
+        <button id="startBtn" class="start-btn">
+            <i class="fas fa-camera"></i>
+            <span>스캐너 시작</span>
+        </button>
 
-                    <div id="scannerContainer" class="scanner-container hidden">
-                        <video id="qrVideo" playsinline></video>
-                        <div class="scanner-overlay">
-                            <div class="scanner-frame"></div>
-                        </div>
-                        <p class="scanner-hint">
-                            <i class="fas fa-info-circle"></i> QR 코드를 카메라 앞에 가져다 대세요
-                        </p>
-                    </div>
-
-                    <div id="scannerPlaceholder" class="scanner-placeholder">
-                        <i class="fas fa-qrcode"></i>
-                        <p>스캐너 시작 버튼을 눌러<br>QR 코드 스캔을 시작하세요</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-check-double"></i> 출석 확인 결과</h2>
-                    <span id="scanCount" class="badge">0명 출석</span>
-                </div>
-                <div class="card-body">
-                    <div id="scanResults" class="scan-results">
-                        <div class="empty-state">
-                            <i class="fas fa-clipboard-list"></i>
-                            <p>아직 스캔된 기록이 없습니다</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h2><i class="fas fa-history"></i> 오늘 출석 현황</h2>
-                <button id="refreshToday" class="btn btn-small">
-                    <i class="fas fa-sync"></i> 새로고침
-                </button>
-            </div>
-            <div class="card-body">
-                <div id="todayAttendanceList" class="attendance-table-container">
-                    <div class="loading">
-                        <i class="fas fa-spinner fa-spin"></i> 로딩 중...
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div id="reader"></div>
+        <div id="result" class="result"></div>
     </main>
 
     <footer class="footer">
         <p>&copy; 2026 QR 출석 관리 시스템. All rights reserved.</p>
     </footer>
 
-<!-- QR Code Scanner Library -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     
-    <!-- Firebase SDK (Compat 버전) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" crossorigin="anonymous"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js" crossorigin="anonymous"></script>
-    
-    <!-- Firebase 초기화 -->
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyAZdmV543McgUp72fusN2M8sfFAw0Fhu0g",
@@ -149,24 +201,103 @@
             projectId: "qr-attendance-63ad3",
             storageBucket: "qr-attendance-63ad3.firebasestorage.app",
             messagingSenderId: "640778842098",
-            appId: "1:640778842098:web:bfb9c10ae210c4258e456b",
-            measurementId: "G-P6WPDVK34T"
+            appId: "1:640778842098:web:bfb9c10ae210c4258e456b"
         };
-        if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(firebaseConfig);
-            window.db = firebase.firestore();
-            console.log('🔥 Firebase 초기화 완료!');
-            console.log('📦 프로젝트 ID:', firebaseConfig.projectId);
-        } else {
-            console.error('❌ Firebase SDK 로드 실패!');
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        async function fetchUserByQRCode(qrCode) {
+            const snapshot = await db.collection('users')
+                .where('qr_code', '==', qrCode)
+                .where('deleted', '==', false)
+                .limit(1).get();
+            return snapshot.empty ? null : { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        }
+        
+        async function createAttendance(data) {
+            const timestamp = Date.now();
+            const docRef = await db.collection('attendance').add({
+                ...data, created_at: timestamp, updated_at: timestamp, deleted: false
+            });
+            return { id: docRef.id, ...data };
+        }
+        
+        let html5QrCode = null, isScanning = false, lastScannedCode = '', lastScannedTime = 0;
+        
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            if (isScanning) {
+                await html5QrCode.stop();
+                isScanning = false;
+                document.getElementById('startBtn').innerHTML = '<i class="fas fa-camera"></i><span>스캐너 시작</span>';
+                document.getElementById('reader').style.display = 'none';
+            } else {
+                document.getElementById('reader').style.display = 'block';
+                document.getElementById('startBtn').innerHTML = '<i class="fas fa-stop"></i><span>스캐너 중지</span>';
+                html5QrCode = new Html5Qrcode("reader");
+                try {
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        onScanSuccess,
+                        () => {}
+                    );
+                    isScanning = true;
+                } catch (err) {
+                    showResult('카메라를 시작할 수 없습니다.\n권한을 확인해주세요.', 'error');
+                }
+            }
+        });
+        
+        async function onScanSuccess(decodedText) {
+            const now = Date.now();
+            if (decodedText === lastScannedCode && now - lastScannedTime < 3000) return;
+            lastScannedCode = decodedText;
+            lastScannedTime = now;
+            
+            try {
+                const user = await fetchUserByQRCode(decodedText);
+                if (!user) {
+                    showResult('등록되지 않은 QR 코드입니다.\n\n사용자 등록 메뉴에서 먼저 등록해주세요.', 'error');
+                    return;
+                }
+                
+                const today = new Date().toISOString().split('T')[0];
+                const eventName = `${today} 출석`;
+                
+                const attendanceSnapshot = await db.collection('attendance')
+                    .where('user_id', '==', user.id)
+                    .where('event_name', '==', eventName)
+                    .where('deleted', '==', false)
+                    .limit(1).get();
+                
+                if (!attendanceSnapshot.empty) {
+                    showResult(`${user.name}님은 이미 출석 처리되었습니다.`, 'error');
+                    return;
+                }
+                
+                await createAttendance({
+                    user_id: user.id,
+                    user_name: user.name,
+                    check_in_time: new Date().toISOString(),
+                    location: '스캐너',
+                    event_name: eventName
+                });
+                
+                const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                showResult(`출석 완료!\n\n${user.name}님의 출석이 확인되었습니다.\n\n행사: ${eventName}\n출석 시간: ${time}`, 'success');
+            } catch (error) {
+                showResult('출석 처리 중 오류가 발생했습니다.', 'error');
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+            resultDiv.style.display = 'block';
+            setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
         }
     </script>
-    
-    <!-- Firebase Storage Functions -->
-    <script src="js/firebase-storage.js"></script>
-    
-    <!-- App Scripts -->
-    <script src="js/main.js"></script>
-    <script src="js/scanner.js"></script>
 </body>
 </html>
