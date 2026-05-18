@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR 출석 시스템 - 접속 안내</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .qr-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .qr-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .qr-card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .qr-code-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            display: inline-block;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .qr-link {
+            display: block;
+            margin-top: 15px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .qr-link:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .instructions {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 25px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+
+        .instructions h3 {
+            color: #2196F3;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin: 10px 0;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .url-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 2px solid #ddd;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .print-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 25px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .print-btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .print-btn {
+                display: none;
+            }
+            
+            .instructions {
+                page-break-before: always;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .qr-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <i class="fas fa-qrcode"></i>
+                QR 출석 시스템
+            </h1>
+            <p>모바일에서 QR 코드를 스캔하여 접속하세요</p>
+        </div>
+
+        <div class="content">
+            <div class="qr-grid">
+                <!-- QR 스캐너 접속 -->
+                <div class="qr-card">
+                    <h2>
+                        <i class="fas fa-camera"></i>
+                        QR 스캔 (출석 체크)
+                    </h2>
+                    <div class="qr-code-container">
+                        <div id="qrScanner"></div>
+                    </div>
+                    <a href="https://nk929.github.io/QR-Attendance/scanner.html" class="qr-link" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> 직접 접속하기
+                    </a>
+                    <div class="url-box">
+                        https://nk929.github.io/QR-Attendance/scanner.html
+                    </div>
+                </div>
+
+                <!-- 사용자 등록 접속 -->
+                <div class="qr-card">
+                    <h2>
+                        <i class="fas fa-user-plus"></i>
+                        사용자 등록
+                    </h2>
+                    <div class="qr-code-container">
+                        <div id="qrRegister"></div>
+                    </div>
+                    <a href="https://nk929.github.io/QR-Attendance/register.html" class="qr-link" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> 직접 접속하기
+                    </a>
+                    <div class="url-box">
+                        https://nk929.github.io/QR-Attendance/register.html
+                    </div>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <h3><i class="fas fa-info-circle"></i> 사용 방법</h3>
+                <ol>
+                    <li>
+                        <strong>처음 사용하는 경우:</strong>
+                        <ul style="margin-left: 20px; margin-top: 5px;">
+                            <li>오른쪽 "사용자 등록" QR 코드를 스캔하세요</li>
+                            <li>본인 정보(이름, 이메일, 전화번호)를 입력하세요</li>
+                            <li>"등록" 버튼을 클릭하세요</li>
+                            <li>"QR 코드 보기"를 클릭하여 본인 QR을 저장하세요</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>출석 체크:</strong>
+                        <ul style="margin-left: 20px; margin-top: 5px;">
+                            <li>왼쪽 "QR 스캔" QR 코드를 스캔하세요</li>
+                            <li>강의/장소를 선택하세요</li>
+                            <li>"스캐너 시작" 버튼을 클릭하세요</li>
+                            <li>본인의 QR 코드를 카메라에 비추세요</li>
+                            <li>"✅ 출석 완료!" 메시지를 확인하세요</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>주의사항:</strong>
+                        <ul style="margin-left: 20px; margin-top: 5px;">
+                            <li>QR 코드는 화면을 밝게 하여 스캔하세요</li>
+                            <li>같은 날, 같은 강의는 1회만 출석 가능합니다</li>
+                            <li>본인의 QR 코드는 캡처하여 보관하세요</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+            <div style="text-align: center;">
+                <button onclick="window.print()" class="print-btn">
+                    <i class="fas fa-print"></i> 이 페이지 인쇄하기
+                </button>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2026 QR 출석 관리 시스템. All rights reserved.</p>
+        </div>
+    </div>
+
+    <script>
+        // QR 코드 생성
+        window.addEventListener('DOMContentLoaded', function() {
+            // QR 스캐너 QR 코드
+            new QRCode(document.getElementById("qrScanner"), {
+                text: "https://nk929.github.io/QR-Attendance/scanner.html",
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // 사용자 등록 QR 코드
+            new QRCode(document.getElementById("qrRegister"), {
+                text: "https://nk929.github.io/QR-Attendance/register.html",
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        });
+    </script>
+</body>
+</html>
